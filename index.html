@@ -3,56 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Starships</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.11"></script>
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <title>Starships</title>
 </head>
 <body>
-  <template id="myList">
-    <ul>
-	  <!-- <li v-for='item of res' :style="{color: item.Status=='NEW'? 'grey' : item.Status=='IN_PROGRESS'? 'blue':item.Status=='RESOLVED'? 'green':''}">{{item.Id}}-{{statuses[item.Status]}}</li> -->
-	</ul>
-  </template>
-  <div id="app">
-    <mylst></mylst>
+  
+
+  <div class="conteiner p-5" id="app">
+    <div>
+    <div class="d-flex justify-content-center m-5" v-if="loading">
+      <div class="spinner-border" role="status">
+        <span class="sr-only">Loading...</span>
+      </div>
+    </div>
+    <div v-if="!loading">
+    <div class="row mb-3">
+      <div class="col">
+        <h1>Звездолеты Star wars</h1>        
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="search">Поиск</label>
+          <input 
+            v-model="search"
+            type="text" 
+            class="form-control"
+            id="search"
+            placeholder="Введите наименование для поиска">
+          <hr>
+          <ul class="list-group" >
+            <li class="list-group-item list-group-item-action poiter " 
+              v-for='(item, index) of filteredStarships' 
+              @click="selectStarship(index)"
+              :class="{'active': selectStarshipIndex===index}"
+              >
+              {{item.name}}              
+            </li>
+          </ul>
+          <ul class="pagination pt-2" v-if="countPages!=null">
+            <li      
+            aria-label="Previous" 
+            class="page-item"
+            :class="{disabled: prevPage==null}"
+            @click="chengePage(currentPage-1)"
+            ><a class="page-link" href="#">
+            &laquo;                
+          </a>
+            </li>
+            <li 
+              v-for="nomPage in countPages " 
+              class="page-item"              
+              :class="{active: currentPage===nomPage}"
+              @click="chengePage(nomPage)"
+              ><a class="page-link" href="#">
+              {{nomPage}}
+              </a>
+            </li>
+            <li      
+            aria-label="Next" 
+            class="page-item"
+            :class="{disabled: nextPage==null}"
+            @click="chengePage(currentPage+1)"
+            ><a class="page-link" href="#">
+            &raquo;                
+          </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-8 pt-3">
+        <div class="row">
+          <div class="col">
+            <h1>Описание</h1>
+            <hr>
+            <div v-if="starship">
+              <div v-for="(value, name) in starship">
+                <strong>{{name}}</strong>-{{value}}
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>   
   </div>
 
   <script>
-   
-    var app = new Vue({
+      var app = new Vue({
       el: '#app',
-	  components:{
-	    mylst: {
-		  data:()=>{
-		    return {
-		      res:[],
-			  statuses: {
-			    'NEW': 'Новый',
-			    'IN_PROGRESS': 'В работе',
-			    'RESOLVED': 'Решена'}
-			  }
-		  },
-		  
-          template: '#myList',
-		  mounted: async function() {
-          await axios
-                .get('https://swapi.co/api/starships/')
+	    data:{
+        loading:true,
+        starships:[],	
+        starship:null,
+        selectStarshipIndex: null,
+        search:'',
+        countPages:null,
+        nextPage: null,
+        prevPage: null,
+        currentPage:1 
+      },      
+      mounted: 
+        async function() {
+        
+        await axios
+                .get("https://swapi.co/api/starships/")
                 .then(response => {
-                    this.res = response.data;
-					console.log(this.res)
+                  this.countPages=(response.data.count%response.data.results.length)==0?(response.data.count%response.data.results.length):Math.ceil(response.data.count/response.data.results.length);
+                  this.prevPage=response.data.previous;
+                  this.nextPage=response.data.next;
+                  this.starships = response.data.results;	
+                  this.loading=false;                 	                  			        
                 })
                 .catch(function(e){
                     this.error = e;
-                });
+                })
           },
-	    }
-	  }
-	  
-    })
+      methods:{
+        selectStarship: function(index){
+          this.starship=this.starships[index]
+          this.selectStarshipIndex=index
+        },
+        chengePage: async function(page){
+          this.loading=true;
+          await axios
+                .get("https://swapi.co/api/starships/?page="+page)
+                .then(response => {
+                  this.prevPage=response.data.previous;
+                  this.nextPage=response.data.next;
+                  this.starships = response.data.results;
+                  this.selectStarshipIndex=null;
+                  this.starship=null;
+                  this.currentPage=page;
+                  this.loading=false;
+                })
+                .catch(function(e){
+                    this.error = e;
+                })
+          },        
+      },
+      computed:{
+        filteredStarships(){
+           return this.starships.filter(starship=>{
+            return starship.name.toLowerCase().indexOf(this.search.toLowerCase())>-1
+          })                   
+        }
+      }
+	    })
 	 
-
-<body>
-
-    
+  </script>
 </body>
 </html>
